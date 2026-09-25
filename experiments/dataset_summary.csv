@@ -1,0 +1,8 @@
+file,rows,columns,unique_ids,column_names,empty_address_count,empty_address_pct,non_ascii_names_count,non_ascii_names_pct,name_len_mean,name_len_median,addr_len_mean,addr_len_median,null_string_in_addr,countries
+train_source1.tsv,2206821,4,2206821,"entity_id;business_name;business_address;country",0,0.00%,0,0.00%,24.0,24,52.1,41,43,"US(1323633);India(883188)"
+train_source2.tsv,5034616,4,5034616,"entity_id;business_name;business_address;country",168967,3.36%,764608,15.19%,25.1,25,46.2,37,131794,"US(3016817);India(2017799)"
+train_source3.tsv,5285603,4,5285603,"entity_id;business_name;business_address;country",175916,3.33%,606737,11.48%,25.2,25,46.7,42,130844,"US(3170056);India(2115547)"
+train_ground_truth.tsv,2206821,2,2206821,"source1_entity_id;matched_entity_ids",N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"singletons(123247);matched(2083574)"
+test_source1.tsv,1732544,4,1732544,"entity_id;business_name;business_address;country",0,0.00%,40789,2.35%,23.8,24,57.2,50,N/A,"India(809986);US(663106);France(259452)"
+test_source2.tsv,4887273,4,4887273,"entity_id;business_name;business_address;country",129408,2.65%,928158,18.99%,25.7,25,50.4,43,N/A,"India(2312565);US(1871330);France(703378)"
+test_source3.tsv,5082316,4,5082316,"entity_id;business_name;business_address;country",136098,2.68%,737515,14.51%,25.7,25,48.7,43,N/A,"India(2405000);US(1945701);France(731615)"

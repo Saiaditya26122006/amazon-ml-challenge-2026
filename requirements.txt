@@ -1,0 +1,3 @@
+# Amazon ML Challenge 2026 - Business Entity Resolution
+# Pin versions once the team agrees on the environment.
+# Do not install until the team is ready to begin implementation.

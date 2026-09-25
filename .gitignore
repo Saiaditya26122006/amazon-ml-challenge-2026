@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Original competition dataset (large, do not push to GitHub)
+database/
+
+# Generated processed data (large, reproducible from src/)
+processed/*
+!processed/.gitkeep
+
+# Trained model artifacts (large, reproducible from src/)
+models/*
+!models/.gitkeep
+
+# Generated submission files
+output/*
+!output/.gitkeep
+
+# Temporary files
+*.tmp
+*.bak
+tmp/
+
+# Claude Code local settings
+.claude/
