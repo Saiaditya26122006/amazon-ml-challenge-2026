@@ -1,0 +1,5 @@
+route_name,s1_evaluated,gt_s2_matches,gt_s3_matches,retrieved_s2,retrieved_s3,s2_recall,s3_recall,overall_recall,entity_full_coverage,avg_candidates,median_candidates,p95_candidates,max_candidates,runtime_s
+country_only,94406,167009,178988,167009,178988,1.0,1.0,1.0,1.0,5362121.1,6186873.0,6186873.0,6186873,49.09
+country_name_cleaned,94406,167009,178988,26046,28102,0.155988,0.156984,0.156503,0.017992,7.2,1.0,41.0,378,72.7
+country_name_alphanumeric,94406,167009,178988,41924,46690,0.251034,0.260893,0.256133,0.037135,11.2,2.0,70.0,501,72.88
+union_name_cleaned_alphanumeric,94406,167009,178988,41924,46690,0.251034,0.260893,0.256133,0.037135,11.2,2.0,70.0,501,161.77
