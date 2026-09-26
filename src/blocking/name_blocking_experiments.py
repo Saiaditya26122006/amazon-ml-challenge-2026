@@ -154,7 +154,7 @@ def generate_synthetic_benchmark_dataset(num_s1: int = 100_000):
 
     countries = ["US", "IN", "FR", "US", "IN"]
     
-    # Common company words & suffixes
+    # Common company words & suffixes (occur frequently)
     corp_types = ["LLC", "Private Limited", "Pvt Ltd", "Inc", "Corp", "SARL", "SAS", "GmbH", "Co"]
     common_words = ["Global", "National", "India", "Services", "Technologies", "Solutions", "Group", "Enterprises", "Industries", "Trading"]
 
@@ -215,12 +215,29 @@ def generate_synthetic_benchmark_dataset(num_s1: int = 100_000):
         gt[s1_id].append(s3_id)
         idx += 1
 
+    # Diverse vocabulary generator (50 x 50 x 50 = 125,000 distinct primary stems)
+    prefixes = ["Apex", "Vertex", "Beacon", "Summit", "Crest", "Horizon", "Pinnacle", "Vanguard", "Genesis", "Matrix",
+                "Omni", "Quantum", "Nexus", "Synergy", "Starlight", "Sunburst", "Alpha", "Beta", "Gamma", "Delta",
+                "Echo", "Omega", "Aero", "Bio", "Cyber", "Eco", "Geo", "Info", "Meta", "Poly", "Terra", "Vita",
+                "Zeta", "Astra", "Blaze", "Citadel", "Dynasty", "Elysium", "Frontier", "Helios", "Impulse", "Jubilee",
+                "Krypton", "Lumina", "Meridian", "Nova", "Orion", "Prism", "Quasar", "Radiance"]
+
+    roots = ["tech", "sys", "corp", "span", "tron", "net", "ware", "soft", "com", "star", "craft", "works", "med",
+             "labs", "link", "port", "flow", "wave", "sync", "edge", "node", "core", "grid", "byte", "line", "path",
+             "point", "shift", "sphere", "vibe", "zone", "base", "cast", "mesh", "pulse", "track", "vault", "view",
+             "mark", "arch", "bond", "flex", "forge", "fusion", "gate", "isle", "mount", "peak", "shield", "trust"]
+
+    suffixes = ["ia", "is", "ex", "on", "um", "us", "ix", "ox", "ra", "va", "zi", "ty", "gen", "pro", "max", "io",
+                "ix", "al", "ic", "ar", "or", "er", "an", "en", "in", "op", "up", "ax", "ez", "oz", "ix", "ux", "ad",
+                "ed", "id", "od", "ud", "am", "em", "im", "om", "um", "ap", "ep", "ip", "op", "up", "at", "et", "it"]
+
     # 2. Add bulk generated entities up to num_s1
-    first_names = ["Apex", "Vertex", "Beacon", "Summit", "Crest", "Horizon", "Pinnacle", "Vanguard", "Genesis", "Matrix", "Omni", "Quantum", "Nexus", "Synergy", "Starlight", "Sunburst", "Alpha", "Beta", "Gamma", "Delta", "Echo", "Omega"]
-    
     while idx <= num_s1:
         cntry = random.choice(countries)
-        fn = random.choice(first_names)
+        p_idx = (idx - 1) % len(prefixes)
+        r_idx = ((idx - 1) // len(prefixes)) % len(roots)
+        s_idx = ((idx - 1) // (len(prefixes) * len(roots))) % len(suffixes)
+        fn = f"{prefixes[p_idx]}{roots[r_idx]}{suffixes[s_idx]}"
         cw = random.choice(common_words)
         ct = random.choice(corp_types)
 
@@ -262,14 +279,17 @@ def generate_synthetic_benchmark_dataset(num_s1: int = 100_000):
     # Add background distractor noise to S2 and S3 to reach realistic ratio
     for d_idx in range(idx, idx + 50_000):
         cntry = random.choice(countries)
-        fn = random.choice(first_names)
+        p_idx = (d_idx - 1) % len(prefixes)
+        r_idx = ((d_idx - 1) // len(prefixes)) % len(roots)
+        s_idx = ((d_idx - 1) // (len(prefixes) * len(roots))) % len(suffixes)
+        fn = f"{prefixes[p_idx]}{roots[r_idx]}{suffixes[s_idx]}"
         cw = random.choice(common_words)
         ct = random.choice(corp_types)
 
-        name_s2 = f"Distractor {fn} {cw} {d_idx} {ct}"
+        name_s2 = f"Distractor {fn} {cw} {ct}"
         s2_list.append(Entity(f"S2-{d_idx:08d}", name_s2, f"{d_idx} Distractor Ave", cntry, normalize_country(cntry), normalize_name(name_s2)))
 
-        name_s3 = f"Distractor {fn} {d_idx} {cw} {ct}"
+        name_s3 = f"Distractor {fn} {cw} {ct}"
         s3_list.append(Entity(f"S3-{d_idx:08d}", name_s3, f"{d_idx} Distractor Rd", cntry, normalize_country(cntry), normalize_name(name_s3)))
 
     return s1_list, s2_list, s3_list, gt
@@ -392,7 +412,7 @@ class BlockingEvaluator:
             memory_mb=round(peak_mem / (1024 * 1024), 2),
         )
 
-    def evaluate_shared_tokens(self, strategy_name: str, max_token_freq: int | None = None) -> EvaluationResult:
+    def evaluate_shared_tokens(self, strategy_name: str, max_token_freq: int | None = None, max_queries: int = 10_000) -> EvaluationResult:
         """Evaluates Country + Shared Tokens (or Rare Tokens if max_token_freq set)."""
         tracemalloc.start()
         t0 = time.perf_counter()
@@ -409,8 +429,10 @@ class BlockingEvaluator:
 
         retrieved_true = 0
         candidate_counts = []
+        eval_sample = self.s1_sample[:max_queries] if len(self.s1_sample) > max_queries else self.s1_sample
+        total_true_matches_sample = sum(len(self.gt.get(s1.entity_id, set())) for s1 in eval_sample)
 
-        for s1 in self.s1_sample:
+        for s1 in eval_sample:
             c_set = set()
             for tok in s1.name_norm.tokens:
                 if tok not in ignored_tokens:
@@ -428,13 +450,13 @@ class BlockingEvaluator:
         _, peak_mem = tracemalloc.get_traced_memory()
         tracemalloc.stop()
 
-        recall = retrieved_true / self.total_true_matches if self.total_true_matches > 0 else 0.0
+        recall = retrieved_true / total_true_matches_sample if total_true_matches_sample > 0 else 0.0
         avg_c, med_c, p95_c, max_c = compute_percentiles(candidate_counts)
 
         return EvaluationResult(
             strategy_name=strategy_name,
             target_source=self.target_prefix,
-            total_true_matches=self.total_true_matches,
+            total_true_matches=total_true_matches_sample,
             retrieved_true_matches=retrieved_true,
             recall=recall,
             avg_candidates=avg_c,
@@ -445,17 +467,19 @@ class BlockingEvaluator:
             memory_mb=round(peak_mem / (1024 * 1024), 2),
         )
 
-    def evaluate_ngram_multi_k(self, n: int, top_k_list: list[int]) -> list[EvaluationResult]:
+    def evaluate_ngram_multi_k(self, n: int, top_k_list: list[int], max_queries: int = 5_000) -> list[EvaluationResult]:
         """Evaluates Country + Character N-Gram retrieval for multiple Top-K values in a single pass."""
         tracemalloc.start()
         t0 = time.perf_counter()
 
         target_ngrams = []
+        target_ngram_lens = []
         country_index = defaultdict(lambda: defaultdict(list))
 
         for idx, e in enumerate(self.target_entities):
             ngs = extract_ngrams(e.name_norm.no_accents, n)
             target_ngrams.append(ngs)
+            target_ngram_lens.append(len(ngs))
             for ng in ngs:
                 country_index[e.country_cleaned][ng].append(idx)
 
@@ -463,7 +487,13 @@ class BlockingEvaluator:
         retrieved_true_counts = {k: 0 for k in top_k_list}
         candidate_counts_map = {k: [] for k in top_k_list}
 
-        for s1 in self.s1_sample:
+        eval_sample = self.s1_sample[:max_queries] if len(self.s1_sample) > max_queries else self.s1_sample
+        total_true_matches_sample = sum(len(self.gt.get(s1.entity_id, set())) for s1 in eval_sample)
+
+        # Skip ubiquitous n-grams (e.g. legal suffixes, common syllables) exceeding 1% or 1,000 postings
+        max_postings = min(1000, max(50, int(0.01 * len(self.target_entities))))
+
+        for s1 in eval_sample:
             s1_ngs = extract_ngrams(s1.name_norm.no_accents, n)
             len_s1 = len(s1_ngs)
             c_index = country_index.get(s1.country_cleaned)
@@ -475,7 +505,10 @@ class BlockingEvaluator:
 
             overlap = defaultdict(int)
             for ng in s1_ngs:
-                for target_idx in c_index.get(ng, []):
+                postings = c_index.get(ng, [])
+                if len(postings) > max_postings:
+                    continue
+                for target_idx in postings:
                     overlap[target_idx] += 1
 
             if not overlap:
@@ -488,7 +521,7 @@ class BlockingEvaluator:
             for target_idx, inter_cnt in overlap.items():
                 if inter_cnt < min_overlap:
                     continue
-                union_cnt = len_s1 + len(target_ngrams[target_idx]) - inter_cnt
+                union_cnt = len_s1 + target_ngram_lens[target_idx] - inter_cnt
                 jaccard = inter_cnt / union_cnt if union_cnt > 0 else 0.0
                 scores.append((jaccard, target_idx))
 
@@ -511,13 +544,13 @@ class BlockingEvaluator:
         for k in top_k_list:
             strategy_name = f"Country + {n}-gram (Top-{k})"
             retrieved_true = retrieved_true_counts[k]
-            recall = retrieved_true / self.total_true_matches if self.total_true_matches > 0 else 0.0
+            recall = retrieved_true / total_true_matches_sample if total_true_matches_sample > 0 else 0.0
             avg_c, med_c, p95_c, max_c = compute_percentiles(candidate_counts_map[k])
             eval_results.append(
                 EvaluationResult(
                     strategy_name=strategy_name,
                     target_source=self.target_prefix,
-                    total_true_matches=self.total_true_matches,
+                    total_true_matches=total_true_matches_sample,
                     retrieved_true_matches=retrieved_true,
                     recall=recall,
                     avg_candidates=avg_c,
