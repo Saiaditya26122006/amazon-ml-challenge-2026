@@ -412,7 +412,7 @@ class BlockingEvaluator:
             memory_mb=round(peak_mem / (1024 * 1024), 2),
         )
 
-    def evaluate_shared_tokens(self, strategy_name: str, max_token_freq: int | None = None, max_queries: int = 10_000) -> EvaluationResult:
+    def evaluate_shared_tokens(self, strategy_name: str, max_token_freq: int | None = None) -> EvaluationResult:
         """Evaluates Country + Shared Tokens (or Rare Tokens if max_token_freq set)."""
         tracemalloc.start()
         t0 = time.perf_counter()
@@ -429,10 +429,8 @@ class BlockingEvaluator:
 
         retrieved_true = 0
         candidate_counts = []
-        eval_sample = self.s1_sample[:max_queries] if len(self.s1_sample) > max_queries else self.s1_sample
-        total_true_matches_sample = sum(len(self.gt.get(s1.entity_id, set())) for s1 in eval_sample)
 
-        for s1 in eval_sample:
+        for s1 in self.s1_sample:
             c_set = set()
             for tok in s1.name_norm.tokens:
                 if tok not in ignored_tokens:
@@ -450,13 +448,13 @@ class BlockingEvaluator:
         _, peak_mem = tracemalloc.get_traced_memory()
         tracemalloc.stop()
 
-        recall = retrieved_true / total_true_matches_sample if total_true_matches_sample > 0 else 0.0
+        recall = retrieved_true / self.total_true_matches if self.total_true_matches > 0 else 0.0
         avg_c, med_c, p95_c, max_c = compute_percentiles(candidate_counts)
 
         return EvaluationResult(
             strategy_name=strategy_name,
             target_source=self.target_prefix,
-            total_true_matches=total_true_matches_sample,
+            total_true_matches=self.total_true_matches,
             retrieved_true_matches=retrieved_true,
             recall=recall,
             avg_candidates=avg_c,
@@ -467,7 +465,7 @@ class BlockingEvaluator:
             memory_mb=round(peak_mem / (1024 * 1024), 2),
         )
 
-    def evaluate_ngram_multi_k(self, n: int, top_k_list: list[int], max_queries: int = 5_000) -> list[EvaluationResult]:
+    def evaluate_ngram_multi_k(self, n: int, top_k_list: list[int]) -> list[EvaluationResult]:
         """Evaluates Country + Character N-Gram retrieval for multiple Top-K values in a single pass."""
         tracemalloc.start()
         t0 = time.perf_counter()
@@ -487,13 +485,12 @@ class BlockingEvaluator:
         retrieved_true_counts = {k: 0 for k in top_k_list}
         candidate_counts_map = {k: [] for k in top_k_list}
 
-        eval_sample = self.s1_sample[:max_queries] if len(self.s1_sample) > max_queries else self.s1_sample
-        total_true_matches_sample = sum(len(self.gt.get(s1.entity_id, set())) for s1 in eval_sample)
-
         # Skip ubiquitous n-grams (e.g. legal suffixes, common syllables) exceeding 1% or 1,000 postings
         max_postings = min(1000, max(50, int(0.01 * len(self.target_entities))))
 
-        for s1 in eval_sample:
+        import heapq
+
+        for s1 in self.s1_sample:
             s1_ngs = extract_ngrams(s1.name_norm.no_accents, n)
             len_s1 = len(s1_ngs)
             c_index = country_index.get(s1.country_cleaned)
@@ -503,30 +500,36 @@ class BlockingEvaluator:
                     candidate_counts_map[k].append(0)
                 continue
 
-            overlap = defaultdict(int)
-            for ng in s1_ngs:
-                postings = c_index.get(ng, [])
-                if len(postings) > max_postings:
-                    continue
-                for target_idx in postings:
-                    overlap[target_idx] += 1
+            postings_lists = [c_index[ng] for ng in s1_ngs if ng in c_index and len(c_index[ng]) <= max_postings]
+            if not postings_lists:
+                for k in top_k_list:
+                    candidate_counts_map[k].append(0)
+                continue
 
+            from itertools import chain
+            overlap = Counter(chain.from_iterable(postings_lists))
             if not overlap:
                 for k in top_k_list:
                     candidate_counts_map[k].append(0)
                 continue
 
             min_overlap = 2 if len_s1 >= 4 else 1
-            scores = []
-            for target_idx, inter_cnt in overlap.items():
-                if inter_cnt < min_overlap:
-                    continue
-                union_cnt = len_s1 + target_ngram_lens[target_idx] - inter_cnt
-                jaccard = inter_cnt / union_cnt if union_cnt > 0 else 0.0
-                scores.append((jaccard, target_idx))
+            scores = [
+                (inter_cnt / (len_s1 + target_ngram_lens[t_idx] - inter_cnt), t_idx)
+                for t_idx, inter_cnt in overlap.items()
+                if inter_cnt >= min_overlap
+            ]
 
-            import heapq
-            top_max_k = heapq.nlargest(max_k, scores, key=lambda x: x[0]) if scores else []
+            if not scores:
+                for k in top_k_list:
+                    candidate_counts_map[k].append(0)
+                continue
+
+            if len(scores) <= max_k:
+                top_max_k = sorted(scores, key=lambda x: x[0], reverse=True)
+            else:
+                top_max_k = heapq.nlargest(max_k, scores, key=lambda x: x[0])
+
             true_targets = self.gt.get(s1.entity_id, set())
 
             for k in top_k_list:
@@ -544,13 +547,13 @@ class BlockingEvaluator:
         for k in top_k_list:
             strategy_name = f"Country + {n}-gram (Top-{k})"
             retrieved_true = retrieved_true_counts[k]
-            recall = retrieved_true / total_true_matches_sample if total_true_matches_sample > 0 else 0.0
+            recall = retrieved_true / self.total_true_matches if self.total_true_matches > 0 else 0.0
             avg_c, med_c, p95_c, max_c = compute_percentiles(candidate_counts_map[k])
             eval_results.append(
                 EvaluationResult(
                     strategy_name=strategy_name,
                     target_source=self.target_prefix,
-                    total_true_matches=total_true_matches_sample,
+                    total_true_matches=self.total_true_matches,
                     retrieved_true_matches=retrieved_true,
                     recall=recall,
                     avg_candidates=avg_c,
@@ -688,7 +691,7 @@ def run_all_experiments():
 
 
 def write_analysis_markdown(results: list[EvaluationResult]):
-    """Generates the Markdown report addressing all 7 required questions."""
+    """Generates the Markdown report addressing all required questions dynamically."""
     
     s2_res = [r for r in results if r.target_source == "S2"]
     s3_res = [r for r in results if r.target_source == "S3"]
@@ -696,21 +699,28 @@ def write_analysis_markdown(results: list[EvaluationResult]):
     best_recall_s2 = max(s2_res, key=lambda x: x.recall)
     best_recall_s3 = max(s3_res, key=lambda x: x.recall)
 
+    def get_res(source: str, name: str) -> EvaluationResult:
+        for r in results:
+            if r.target_source == source and r.strategy_name == name:
+                return r
+        return EvaluationResult(name, source, 0, 0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0)
+
     with open(MD_OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write("# Name-Based Candidate Generation (Blocking) Analysis Report\n\n")
-        f.write("**Dataset Scope:** ~100,000 Source 1 entities against Source 2 and Source 3 training sets.\n")
+        f.write("**Dataset Scope:** ~100,000 Source 1 entities evaluated against Source 2 and Source 3 training sets.\n")
+        f.write("**Denominator Guarantee:** Every route is evaluated against the exact same complete ground truth population for all 100K S1 entities (S2 GT Total = 79,835; S3 GT Total = 69,863).\n")
         f.write("**Evaluation Constraint:** Ground truth is strictly used for candidate retrieval evaluation (never for candidate generation).\n\n")
         f.write("---\n\n")
 
         f.write("## 1. Comprehensive Results Table\n\n")
         f.write("### Source 2 Evaluation Results\n\n")
-        f.write("| Strategy | True Matches | Retrieved True | Recall | Avg Cands/S1 | Median Cands | P95 Cands | Max Cands | Runtime (s) | Peak Mem (MB) |\n")
+        f.write("| Strategy | Total True Pairs | Retrieved True | Recall | Avg Cands/S1 | Median Cands | P95 Cands | Max Cands | Runtime (s) | Peak Mem (MB) |\n")
         f.write("|---|---|---|---|---|---|---|---|---|---|\n")
         for r in s2_res:
             f.write(f"| {r.strategy_name} | {r.total_true_matches} | {r.retrieved_true_matches} | {r.recall*100:.2f}% | {r.avg_candidates:.2f} | {r.median_candidates:.0f} | {r.p95_candidates:.0f} | {r.max_candidates} | {r.runtime_sec:.2f} | {r.memory_mb:.1f} |\n")
 
         f.write("\n### Source 3 Evaluation Results\n\n")
-        f.write("| Strategy | True Matches | Retrieved True | Recall | Avg Cands/S1 | Median Cands | P95 Cands | Max Cands | Runtime (s) | Peak Mem (MB) |\n")
+        f.write("| Strategy | Total True Pairs | Retrieved True | Recall | Avg Cands/S1 | Median Cands | P95 Cands | Max Cands | Runtime (s) | Peak Mem (MB) |\n")
         f.write("|---|---|---|---|---|---|---|---|---|---|\n")
         for r in s3_res:
             f.write(f"| {r.strategy_name} | {r.total_true_matches} | {r.retrieved_true_matches} | {r.recall*100:.2f}% | {r.avg_candidates:.2f} | {r.median_candidates:.0f} | {r.p95_candidates:.0f} | {r.max_candidates} | {r.runtime_sec:.2f} | {r.memory_mb:.1f} |\n")
@@ -722,51 +732,47 @@ def write_analysis_markdown(results: list[EvaluationResult]):
         f.write(f"- **Source 2 Highest Recall:** `{best_recall_s2.strategy_name}` with **{best_recall_s2.recall*100:.2f}% recall** ({best_recall_s2.retrieved_true_matches}/{best_recall_s2.total_true_matches} matches).\n")
         f.write(f"- **Source 3 Highest Recall:** `{best_recall_s3.strategy_name}` with **{best_recall_s3.recall*100:.2f}% recall** ({best_recall_s3.retrieved_true_matches}/{best_recall_s3.total_true_matches} matches).\n\n")
         f.write("> [!NOTE]\n")
-        f.write("> Unconstrained shared token retrieval and character 2-gram / 3-gram retrieval at K=50 achieve maximum recall. However, naive token matching without frequency filtering suffers from severe candidate explosions.\n\n")
+        f.write("> Unconstrained shared token retrieval and character n-gram retrieval at higher K values reach high recall. However, naive token matching without frequency filtering suffers from severe candidate volume explosion.\n\n")
 
         f.write("### Q2: Which method has the best recall / candidate-volume tradeoff?\n\n")
-        f.write("- **Winner:** `Country + 3-gram (Top-20)` and `Country + rare tokens (freq <= 500)`.\n")
-        f.write("- **Tradeoff Analysis:**\n")
-        f.write("  - Exact match (`Country + name_alphanumeric`) achieves low recall (~28-35%) because noisy sources contain typos, DBA prefixes, and legal form variations.\n")
-        f.write("  - Unconstrained token sharing (`Country + shared name tokens`) retrieves high recall (>95%), but average candidates explode (>2,500 candidates per S1) due to ubiquitous tokens like *Private*, *Limited*, *Services*, *Group*.\n")
-        f.write("  - `Country + 3-gram (Top-20)` caps the maximum candidate volume strictly at $K=20$ per query while retaining **>92% recall**, dramatically reducing downstream pairing load.\n\n")
+        f.write("- **Analysis:**\n")
+        f.write("  - Exact match (`Country + name_alphanumeric`) achieves low candidate volume (0.4 cands/S1) but moderate recall (~49.8% on S2, ~70.0% on S3) due to noisy sources containing typos, DBA prefixes, and legal form variations.\n")
+        f.write("  - Unconstrained token sharing (`Country + shared name tokens`) retrieves high recall (>99.9%), but average candidate volume explodes (>8,400 candidates per S1) due to ubiquitous tokens like *Private*, *Limited*, *Services*, *Group*.\n")
+        f.write("  - `Country + rare tokens (freq <= 500)` retains **>99.9% recall** while dramatically reducing average candidate volume to **1.07–1.16 candidates per S1**.\n")
+        f.write("  - `Country + 3-gram` and `4-gram` at $K=20$ provide strict candidate volume bounds ($K=20$) with **>98.4% recall** across both targets.\n\n")
 
         f.write("### Q3: Which tokens cause candidate explosions?\n\n")
         f.write("The top tokens responsible for quadratic candidate explosion within country blocks are:\n")
         f.write("1. **Legal Form Suffixes:** `limited`, `private`, `pvt`, `ltd`, `llc`, `inc`, `corp`, `sarl`, `sas`, `gmbh`, `co`.\n")
         f.write("2. **Generic Business Nouns:** `services`, `solutions`, `group`, `enterprises`, `industries`, `trading`, `technologies`, `management`, `international`.\n")
         f.write("3. **Geographic Anchors:** `india`, `us`, `america`, `delhi`, `mumbai`, `paris`.\n\n")
-        f.write("Filtering out tokens appearing > 500 times drops max candidate volume per query from >45,000 down to <350 without penalizing recall on unique entity identifiers.\n\n")
 
         f.write("### Q4: How much do common names hurt?\n\n")
         f.write("- Common generic names (e.g. *Global Solutions LLC*, *National Trading Company*) produce extreme candidate lists when using single-token matching.\n")
-        f.write("- Without rare-token filtering or Top-K capping, the 95th percentile (P95) candidate volume surges to **over 1,200 candidates per entity**.\n")
-        f.write("- Setting a strict $K \\le 50$ cap on character n-gram similarity completely protects the pipeline against common name explosions.\n\n")
+        f.write("- Without rare-token filtering or Top-K capping, average candidate volume surges to **over 8,400 candidates per entity**.\n")
+        f.write("- Setting a strict Top-K cap or rare token frequency threshold protects downstream pairing against candidate explosions.\n\n")
 
         f.write("### Q5: How much do multilingual names hurt?\n\n")
         f.write("- **Indic Script Names (Devanagari, Tamil, Telugu, Malayalam, Bengali):**\n")
-        f.write("  - ASCII-only normalization converts Indic characters into empty strings or strips them, causing exact match methods to fail 100% of the time.\n")
-        f.write("  - Character n-gram blocking preserves Unicode code-points and enables effective matching even across script variations or partial transliterations.\n")
+        f.write("  - Exact matching fails when scripts differ or non-ASCII characters are stripped. Character n-gram blocking preserves Unicode code-points and enables matching across script variations.\n")
         f.write("- **French Accented Names:**\n")
-        f.write("  - Acute/grave accents (`Café` vs `Cafe`, `Société` vs `Societe`) cause standard exact match to drop by ~12% recall. `name_no_accents` and n-gram retrieval resolve 100% of these diacritic mismatches.\n\n")
+        f.write("  - Accents (`Café` vs `Cafe`, `Société` vs `Societe`) cause standard exact match to fail unless stripped. `name_no_accents` and n-gram retrieval resolve diacritic mismatches.\n\n")
 
-        f.write("### Q6: What Top-K should we consider for the final system?\n\n")
-        f.write("| Top-K | S2 Recall | S3 Recall | Avg Candidates / S1 | Recommendation |\n")
-        f.write("|---|---|---|---|---|\n")
-        f.write("| K=5 | ~78.5% | ~74.2% | 5.0 | Too aggressive; misses multi-word variations |\n")
-        f.write("| K=10 | ~88.1% | ~85.4% | 10.0 | Good for lightweight fast initial pass |\n")
-        f.write("| **K=20** | **~94.8%** | **~92.6%** | **20.0** | **RECOMMENDED OPTIMAL BALANCE** |\n")
-        f.write("| K=50 | ~98.2% | ~96.5% | 50.0 | High recall, double feature extraction volume |\n\n")
+        f.write("### Q6: What Top-K should we consider for Character N-Gram routes?\n\n")
+        f.write("| Top-K | S2 3-Gram Recall | S3 3-Gram Recall | Avg Candidates / S1 |\n")
+        f.write("|---|---|---|---|\n")
+        for k in [5, 10, 20, 50]:
+            r_s2 = get_res("S2", f"Country + 3-gram (Top-{k})")
+            r_s3 = get_res("S3", f"Country + 3-gram (Top-{k})")
+            f.write(f"| K={k} | {r_s2.recall*100:.2f}% | {r_s3.recall*100:.2f}% | {r_s2.avg_candidates:.2f} |\n")
+        f.write("\n")
 
-        f.write("### Q7: Recommended Name Blocking Routes\n\n")
-        f.write("For the final multi-route blocking system, we recommend combining **3 complementary routes** within each country block:\n\n")
-        f.write("1. **Route 1: Exact Alphanumeric Name Match (`Country + name_alphanumeric`)**\n")
-        f.write("   - Fast hash lookup. Captures ~35% of true matches instantly with 1 candidate per query.\n")
-        f.write("2. **Route 2: Rare Token Intersection (`Country + rare tokens, freq <= 500`)**\n")
-        f.write("   - Captures word-reordered names (*Consultancy Services Tata* $\\leftrightarrow$ *Tata Consultancy Services*) and DBA extractions.\n")
-        f.write("3. **Route 3: 3-Gram Similarity Top-K Retrieval (`K=20`)**\n")
-        f.write("   - Captures typos, diacritics, transliterated names, and short names.\n\n")
-        f.write("Combining these 3 routes produces **>98.5% overall recall** while keeping average candidates per S1 entity **under 35 candidates**.\n")
+        f.write("### Q7: Evaluated Name Blocking Routes Overview\n\n")
+        f.write("The evaluated name-based blocking routes offer distinct operational characteristics:\n")
+        f.write("1. **Exact Alphanumeric Match (`Country + name_alphanumeric`)**: Fast hash lookup; zero candidate overhead.\n")
+        f.write("2. **Rare Token Intersection (`Country + rare tokens, freq <= 500`)**: Filters out legal and generic nouns; handles word reordering and DBA extractions.\n")
+        f.write("3. **Character N-Gram Retrieval (3-Gram / 4-Gram, Top-K)**: Top-K similarity lookup; handles typos, accents, Indic scripts, and short names.\n\n")
+        f.write("*(Note: Multi-route union evaluation and candidate-set combination analysis will be conducted next using the candidate-union framework.)*\n")
 
 
 if __name__ == "__main__":

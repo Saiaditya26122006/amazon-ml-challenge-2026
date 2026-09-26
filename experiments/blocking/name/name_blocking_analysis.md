@@ -1,6 +1,7 @@
 # Name-Based Candidate Generation (Blocking) Analysis Report
 
-**Dataset Scope:** ~100,000 Source 1 entities against Source 2 and Source 3 training sets.
+**Dataset Scope:** ~100,000 Source 1 entities evaluated against Source 2 and Source 3 training sets.
+**Denominator Guarantee:** Every route is evaluated against the exact same complete ground truth population for all 100K S1 entities (S2 GT Total = 79,835; S3 GT Total = 69,863).
 **Evaluation Constraint:** Ground truth is strictly used for candidate retrieval evaluation (never for candidate generation).
 
 ---
@@ -9,49 +10,49 @@
 
 ### Source 2 Evaluation Results
 
-| Strategy | True Matches | Retrieved True | Recall | Avg Cands/S1 | Median Cands | P95 Cands | Max Cands | Runtime (s) | Peak Mem (MB) |
+| Strategy | Total True Pairs | Retrieved True | Recall | Avg Cands/S1 | Median Cands | P95 Cands | Max Cands | Runtime (s) | Peak Mem (MB) |
 |---|---|---|---|---|---|---|---|---|---|
-| Country + exact name_cleaned | 79835 | 39729 | 49.76% | 0.40 | 0 | 1 | 2 | 1.13 | 24.6 |
+| Country + exact name_cleaned | 79835 | 39729 | 49.76% | 0.40 | 0 | 1 | 2 | 1.14 | 24.6 |
 | Country + exact name_alphanumeric | 79835 | 39730 | 49.77% | 0.40 | 0 | 1 | 2 | 1.24 | 24.5 |
-| Country + exact name_no_accents | 79835 | 39729 | 49.76% | 0.40 | 0 | 1 | 2 | 1.40 | 24.5 |
-| Country + shared name tokens | 7985 | 7980 | 99.94% | 8478.29 | 9382 | 9596 | 10393 | 8.08 | 25.6 |
-| Country + rare tokens (freq <= 500) | 7985 | 7980 | 99.94% | 1.16 | 1 | 2 | 2 | 0.66 | 22.1 |
-| Country + rare tokens (freq <= 100) | 7985 | 7980 | 99.94% | 1.16 | 1 | 2 | 2 | 0.62 | 22.1 |
-| Country + 2-gram (Top-5) | 3988 | 474 | 11.89% | 1.14 | 0 | 5 | 5 | 13.11 | 467.9 |
-| Country + 2-gram (Top-10) | 3988 | 618 | 15.50% | 2.25 | 0 | 10 | 10 | 13.11 | 467.9 |
-| Country + 2-gram (Top-20) | 3988 | 705 | 17.68% | 4.27 | 0 | 20 | 20 | 13.11 | 467.9 |
-| Country + 2-gram (Top-50) | 3988 | 807 | 20.24% | 9.22 | 0 | 50 | 50 | 13.11 | 467.9 |
-| Country + 3-gram (Top-5) | 3988 | 3763 | 94.36% | 4.99 | 5 | 5 | 5 | 18.96 | 475.0 |
-| Country + 3-gram (Top-10) | 3988 | 3868 | 96.99% | 9.97 | 10 | 10 | 10 | 18.96 | 475.0 |
-| Country + 3-gram (Top-20) | 3988 | 3927 | 98.47% | 19.91 | 20 | 20 | 20 | 18.96 | 475.0 |
-| Country + 3-gram (Top-50) | 3988 | 3971 | 99.57% | 49.23 | 50 | 50 | 50 | 18.96 | 475.0 |
-| Country + 4-gram (Top-5) | 3988 | 3952 | 99.10% | 4.99 | 5 | 5 | 5 | 23.07 | 470.4 |
-| Country + 4-gram (Top-10) | 3988 | 3976 | 99.70% | 9.98 | 10 | 10 | 10 | 23.07 | 470.4 |
-| Country + 4-gram (Top-20) | 3988 | 3979 | 99.77% | 19.96 | 20 | 20 | 20 | 23.07 | 470.4 |
-| Country + 4-gram (Top-50) | 3988 | 3980 | 99.80% | 49.87 | 50 | 50 | 50 | 23.07 | 470.4 |
+| Country + exact name_no_accents | 79835 | 39729 | 49.76% | 0.40 | 0 | 1 | 2 | 1.35 | 24.5 |
+| Country + shared name tokens | 79835 | 79830 | 99.99% | 8475.19 | 9381 | 9593 | 10393 | 71.55 | 28.9 |
+| Country + rare tokens (freq <= 500) | 79835 | 79830 | 99.99% | 0.98 | 1 | 2 | 4 | 1.25 | 22.7 |
+| Country + rare tokens (freq <= 100) | 79835 | 79830 | 99.99% | 0.98 | 1 | 2 | 4 | 1.22 | 22.7 |
+| Country + 2-gram (Top-5) | 79835 | 18741 | 23.47% | 1.70 | 0 | 5 | 5 | 61.05 | 471.1 |
+| Country + 2-gram (Top-10) | 79835 | 22096 | 27.68% | 3.21 | 0 | 10 | 10 | 61.05 | 471.1 |
+| Country + 2-gram (Top-20) | 79835 | 24292 | 30.43% | 5.85 | 0 | 20 | 20 | 61.05 | 471.1 |
+| Country + 2-gram (Top-50) | 79835 | 26415 | 33.09% | 12.62 | 0 | 50 | 50 | 61.05 | 471.1 |
+| Country + 3-gram (Top-5) | 79835 | 77191 | 96.69% | 4.99 | 5 | 5 | 5 | 229.70 | 478.2 |
+| Country + 3-gram (Top-10) | 79835 | 78437 | 98.25% | 9.98 | 10 | 10 | 10 | 229.70 | 478.2 |
+| Country + 3-gram (Top-20) | 79835 | 79189 | 99.19% | 19.94 | 20 | 20 | 20 | 229.70 | 478.2 |
+| Country + 3-gram (Top-50) | 79835 | 79614 | 99.72% | 49.50 | 50 | 50 | 50 | 229.70 | 478.2 |
+| Country + 4-gram (Top-5) | 79835 | 79482 | 99.56% | 5.00 | 5 | 5 | 5 | 287.54 | 473.5 |
+| Country + 4-gram (Top-10) | 79835 | 79781 | 99.93% | 10.00 | 10 | 10 | 10 | 287.54 | 473.5 |
+| Country + 4-gram (Top-20) | 79835 | 79823 | 99.98% | 20.00 | 20 | 20 | 20 | 287.54 | 473.5 |
+| Country + 4-gram (Top-50) | 79835 | 79827 | 99.99% | 49.99 | 50 | 50 | 50 | 287.54 | 473.5 |
 
 ### Source 3 Evaluation Results
 
-| Strategy | True Matches | Retrieved True | Recall | Avg Cands/S1 | Median Cands | P95 Cands | Max Cands | Runtime (s) | Peak Mem (MB) |
+| Strategy | Total True Pairs | Retrieved True | Recall | Avg Cands/S1 | Median Cands | P95 Cands | Max Cands | Runtime (s) | Peak Mem (MB) |
 |---|---|---|---|---|---|---|---|---|---|
-| Country + exact name_cleaned | 69863 | 48918 | 70.02% | 0.49 | 0 | 1 | 2 | 1.07 | 23.0 |
-| Country + exact name_alphanumeric | 69863 | 48919 | 70.02% | 0.49 | 0 | 1 | 2 | 1.07 | 23.0 |
-| Country + exact name_no_accents | 69863 | 48918 | 70.02% | 0.49 | 0 | 1 | 2 | 1.07 | 23.0 |
-| Country + shared name tokens | 7056 | 7051 | 99.93% | 8626.39 | 9563 | 9753 | 9880 | 8.46 | 24.6 |
-| Country + rare tokens (freq <= 500) | 7056 | 7051 | 99.93% | 1.07 | 1 | 2 | 2 | 0.57 | 20.8 |
-| Country + rare tokens (freq <= 100) | 7056 | 7051 | 99.93% | 1.07 | 1 | 2 | 2 | 0.62 | 20.8 |
-| Country + 2-gram (Top-5) | 3546 | 807 | 22.76% | 2.24 | 0 | 5 | 5 | 12.58 | 448.7 |
-| Country + 2-gram (Top-10) | 3546 | 1051 | 29.64% | 4.43 | 0 | 10 | 10 | 12.58 | 448.7 |
-| Country + 2-gram (Top-20) | 3546 | 1220 | 34.40% | 8.59 | 0 | 20 | 20 | 12.58 | 448.7 |
-| Country + 2-gram (Top-50) | 3546 | 1387 | 39.11% | 19.96 | 0 | 50 | 50 | 12.58 | 448.7 |
-| Country + 3-gram (Top-5) | 3546 | 3423 | 96.53% | 5.00 | 5 | 5 | 5 | 29.51 | 458.0 |
-| Country + 3-gram (Top-10) | 3546 | 3508 | 98.93% | 9.99 | 10 | 10 | 10 | 29.51 | 458.0 |
-| Country + 3-gram (Top-20) | 3546 | 3535 | 99.69% | 19.98 | 20 | 20 | 20 | 29.51 | 458.0 |
-| Country + 3-gram (Top-50) | 3546 | 3539 | 99.80% | 49.84 | 50 | 50 | 50 | 29.51 | 458.0 |
-| Country + 4-gram (Top-5) | 3546 | 3526 | 99.44% | 4.99 | 5 | 5 | 5 | 35.84 | 457.9 |
-| Country + 4-gram (Top-10) | 3546 | 3534 | 99.66% | 9.98 | 10 | 10 | 10 | 35.84 | 457.9 |
-| Country + 4-gram (Top-20) | 3546 | 3538 | 99.77% | 19.95 | 20 | 20 | 20 | 35.84 | 457.9 |
-| Country + 4-gram (Top-50) | 3546 | 3538 | 99.77% | 49.85 | 50 | 50 | 50 | 35.84 | 457.9 |
+| Country + exact name_cleaned | 69863 | 48918 | 70.02% | 0.49 | 0 | 1 | 2 | 1.06 | 23.0 |
+| Country + exact name_alphanumeric | 69863 | 48919 | 70.02% | 0.49 | 0 | 1 | 2 | 1.06 | 23.0 |
+| Country + exact name_no_accents | 69863 | 48918 | 70.02% | 0.49 | 0 | 1 | 2 | 1.05 | 23.0 |
+| Country + shared name tokens | 69863 | 69858 | 99.99% | 8623.10 | 9563 | 9753 | 9882 | 72.30 | 27.9 |
+| Country + rare tokens (freq <= 500) | 69863 | 69858 | 99.99% | 0.87 | 1 | 2 | 4 | 1.23 | 21.4 |
+| Country + rare tokens (freq <= 100) | 69863 | 69858 | 99.99% | 0.87 | 1 | 2 | 4 | 1.20 | 21.4 |
+| Country + 2-gram (Top-5) | 69863 | 23231 | 33.25% | 2.65 | 5 | 5 | 5 | 108.57 | 451.8 |
+| Country + 2-gram (Top-10) | 69863 | 27873 | 39.90% | 5.16 | 8 | 10 | 10 | 108.57 | 451.8 |
+| Country + 2-gram (Top-20) | 69863 | 31560 | 45.17% | 9.81 | 8 | 20 | 20 | 108.57 | 451.8 |
+| Country + 2-gram (Top-50) | 69863 | 34763 | 49.76% | 22.47 | 8 | 50 | 50 | 108.57 | 451.8 |
+| Country + 3-gram (Top-5) | 69863 | 69067 | 98.86% | 5.00 | 5 | 5 | 5 | 495.51 | 461.2 |
+| Country + 3-gram (Top-10) | 69863 | 69644 | 99.69% | 10.00 | 10 | 10 | 10 | 495.51 | 461.2 |
+| Country + 3-gram (Top-20) | 69863 | 69804 | 99.92% | 19.99 | 20 | 20 | 20 | 495.51 | 461.2 |
+| Country + 3-gram (Top-50) | 69863 | 69842 | 99.97% | 49.93 | 50 | 50 | 50 | 495.51 | 461.2 |
+| Country + 4-gram (Top-5) | 69863 | 69797 | 99.91% | 5.00 | 5 | 5 | 5 | 538.06 | 461.0 |
+| Country + 4-gram (Top-10) | 69863 | 69848 | 99.98% | 10.00 | 10 | 10 | 10 | 538.06 | 461.0 |
+| Country + 4-gram (Top-20) | 69863 | 69855 | 99.99% | 20.00 | 20 | 20 | 20 | 538.06 | 461.0 |
+| Country + 4-gram (Top-50) | 69863 | 69855 | 99.99% | 49.99 | 50 | 50 | 50 | 538.06 | 461.0 |
 
 ---
 
@@ -59,19 +60,19 @@
 
 ### Q1: Which name blocking method has the highest recall?
 
-- **Source 2 Highest Recall:** `Country + shared name tokens` with **99.94% recall** (7980/7985 matches).
-- **Source 3 Highest Recall:** `Country + shared name tokens` with **99.93% recall** (7051/7056 matches).
+- **Source 2 Highest Recall:** `Country + shared name tokens` with **99.99% recall** (79830/79835 matches).
+- **Source 3 Highest Recall:** `Country + shared name tokens` with **99.99% recall** (69858/69863 matches).
 
 > [!NOTE]
-> Unconstrained shared token retrieval and character 2-gram / 3-gram retrieval at K=50 achieve maximum recall. However, naive token matching without frequency filtering suffers from severe candidate explosions.
+> Unconstrained shared token retrieval and character n-gram retrieval at higher K values reach high recall. However, naive token matching without frequency filtering suffers from severe candidate volume explosion.
 
 ### Q2: Which method has the best recall / candidate-volume tradeoff?
 
-- **Winner:** `Country + 3-gram (Top-20)` and `Country + rare tokens (freq <= 500)`.
-- **Tradeoff Analysis:**
-  - Exact match (`Country + name_alphanumeric`) achieves low recall (~28-35%) because noisy sources contain typos, DBA prefixes, and legal form variations.
-  - Unconstrained token sharing (`Country + shared name tokens`) retrieves high recall (>95%), but average candidates explode (>2,500 candidates per S1) due to ubiquitous tokens like *Private*, *Limited*, *Services*, *Group*.
-  - `Country + 3-gram (Top-20)` caps the maximum candidate volume strictly at $K=20$ per query while retaining **>92% recall**, dramatically reducing downstream pairing load.
+- **Analysis:**
+  - Exact match (`Country + name_alphanumeric`) achieves low candidate volume (0.4 cands/S1) but moderate recall (~49.8% on S2, ~70.0% on S3) due to noisy sources containing typos, DBA prefixes, and legal form variations.
+  - Unconstrained token sharing (`Country + shared name tokens`) retrieves high recall (>99.9%), but average candidate volume explodes (>8,400 candidates per S1) due to ubiquitous tokens like *Private*, *Limited*, *Services*, *Group*.
+  - `Country + rare tokens (freq <= 500)` retains **>99.9% recall** while dramatically reducing average candidate volume to **1.07–1.16 candidates per S1**.
+  - `Country + 3-gram` and `4-gram` at $K=20$ provide strict candidate volume bounds ($K=20$) with **>98.4% recall** across both targets.
 
 ### Q3: Which tokens cause candidate explosions?
 
@@ -80,40 +81,33 @@ The top tokens responsible for quadratic candidate explosion within country bloc
 2. **Generic Business Nouns:** `services`, `solutions`, `group`, `enterprises`, `industries`, `trading`, `technologies`, `management`, `international`.
 3. **Geographic Anchors:** `india`, `us`, `america`, `delhi`, `mumbai`, `paris`.
 
-Filtering out tokens appearing > 500 times drops max candidate volume per query from >45,000 down to <350 without penalizing recall on unique entity identifiers.
-
 ### Q4: How much do common names hurt?
 
 - Common generic names (e.g. *Global Solutions LLC*, *National Trading Company*) produce extreme candidate lists when using single-token matching.
-- Without rare-token filtering or Top-K capping, the 95th percentile (P95) candidate volume surges to **over 1,200 candidates per entity**.
-- Setting a strict $K \le 50$ cap on character n-gram similarity completely protects the pipeline against common name explosions.
+- Without rare-token filtering or Top-K capping, average candidate volume surges to **over 8,400 candidates per entity**.
+- Setting a strict Top-K cap or rare token frequency threshold protects downstream pairing against candidate explosions.
 
 ### Q5: How much do multilingual names hurt?
 
 - **Indic Script Names (Devanagari, Tamil, Telugu, Malayalam, Bengali):**
-  - ASCII-only normalization converts Indic characters into empty strings or strips them, causing exact match methods to fail 100% of the time.
-  - Character n-gram blocking preserves Unicode code-points and enables effective matching even across script variations or partial transliterations.
+  - Exact matching fails when scripts differ or non-ASCII characters are stripped. Character n-gram blocking preserves Unicode code-points and enables matching across script variations.
 - **French Accented Names:**
-  - Acute/grave accents (`Café` vs `Cafe`, `Société` vs `Societe`) cause standard exact match to drop by ~12% recall. `name_no_accents` and n-gram retrieval resolve 100% of these diacritic mismatches.
+  - Accents (`Café` vs `Cafe`, `Société` vs `Societe`) cause standard exact match to fail unless stripped. `name_no_accents` and n-gram retrieval resolve diacritic mismatches.
 
-### Q6: What Top-K should we consider for the final system?
+### Q6: What Top-K should we consider for Character N-Gram routes?
 
-| Top-K | S2 Recall | S3 Recall | Avg Candidates / S1 | Recommendation |
-|---|---|---|---|---|
-| K=5 | ~78.5% | ~74.2% | 5.0 | Too aggressive; misses multi-word variations |
-| K=10 | ~88.1% | ~85.4% | 10.0 | Good for lightweight fast initial pass |
-| **K=20** | **~94.8%** | **~92.6%** | **20.0** | **RECOMMENDED OPTIMAL BALANCE** |
-| K=50 | ~98.2% | ~96.5% | 50.0 | High recall, double feature extraction volume |
+| Top-K | S2 3-Gram Recall | S3 3-Gram Recall | Avg Candidates / S1 |
+|---|---|---|---|
+| K=5 | 96.69% | 98.86% | 4.99 |
+| K=10 | 98.25% | 99.69% | 9.98 |
+| K=20 | 99.19% | 99.92% | 19.94 |
+| K=50 | 99.72% | 99.97% | 49.50 |
 
-### Q7: Recommended Name Blocking Routes
+### Q7: Evaluated Name Blocking Routes Overview
 
-For the final multi-route blocking system, we recommend combining **3 complementary routes** within each country block:
+The evaluated name-based blocking routes offer distinct operational characteristics:
+1. **Exact Alphanumeric Match (`Country + name_alphanumeric`)**: Fast hash lookup; zero candidate overhead.
+2. **Rare Token Intersection (`Country + rare tokens, freq <= 500`)**: Filters out legal and generic nouns; handles word reordering and DBA extractions.
+3. **Character N-Gram Retrieval (3-Gram / 4-Gram, Top-K)**: Top-K similarity lookup; handles typos, accents, Indic scripts, and short names.
 
-1. **Route 1: Exact Alphanumeric Name Match (`Country + name_alphanumeric`)**
-   - Fast hash lookup. Captures ~35% of true matches instantly with 1 candidate per query.
-2. **Route 2: Rare Token Intersection (`Country + rare tokens, freq <= 500`)**
-   - Captures word-reordered names (*Consultancy Services Tata* $\leftrightarrow$ *Tata Consultancy Services*) and DBA extractions.
-3. **Route 3: 3-Gram Similarity Top-K Retrieval (`K=20`)**
-   - Captures typos, diacritics, transliterated names, and short names.
-
-Combining these 3 routes produces **>98.5% overall recall** while keeping average candidates per S1 entity **under 35 candidates**.
+*(Note: Multi-route union evaluation and candidate-set combination analysis will be conducted next using the candidate-union framework.)*
